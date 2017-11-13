@@ -1,7 +1,8 @@
 <?php
-    require_once "include/http/query.inc.php";
-
     error_reporting(E_ALL);
+
+    require_once "include/http/query.inc.php";
+    require_once "include/json/parse.inc.php";
 
     define("API_KEY","35ef7996395d4c2bb1cedbbd47ecf1a0");
 
@@ -15,6 +16,40 @@
     define("ITEM_TYPE_CHEST", 47);
     define("ITEM_TYPE_LEGS", 48);
     define("ITEM_TYPE_CLASSITEMS", 49);
+
+    define("ITEM_ARMOR_TYPES", array(
+      ITEM_TYPE_HELMETS,
+      ITEM_TYPE_ARMS,
+      ITEM_TYPE_CHEST,
+      ITEM_TYPE_LEGS,
+      ITEM_TYPE_CLASSITEMS
+    ));
+
+    define("ITEM_SUBTYPE_AUTO_RIFLE", 5);
+    define("ITEM_SUBTYPE_HAND_CANNON", 6);
+    define("ITEM_SUBTYPE_PULSE_RIFLE", 7);
+    define("ITEM_SUBTYPE_SCOUT_RIFLE", 8);
+    define("ITEM_SUBTYPE_FUSION_RIFLE", 9);
+    define("ITEM_SUBTYPE_SNIPER_RIFLE", 10);
+    define("ITEM_SUBTYPE_SHOTGUN", 11);
+    define("ITEM_SUBTYPE_MACHINE_GUN", 12);
+    define("ITEM_SUBTYPE_ROCKET_LAUNCHER", 13);
+    define("ITEM_SUBTYPE_SIDEARM", 14);
+    define("ITEM_SUBTYPE_SWORD", 54);
+
+    define("ITEM_WEAPON_SUBTYPES", array(
+      ITEM_SUBTYPE_AUTO_RIFLE,
+      ITEM_SUBTYPE_HAND_CANNON,
+      ITEM_SUBTYPE_PULSE_RIFLE,
+      ITEM_SUBTYPE_SCOUT_RIFLE,
+      ITEM_SUBTYPE_FUSION_RIFLE,
+      ITEM_SUBTYPE_SNIPER_RIFLE,
+      ITEM_SUBTYPE_SHOTGUN,
+      ITEM_SUBTYPE_MACHINE_GUN,
+      ITEM_SUBTYPE_ROCKET_LAUNCHER,
+      ITEM_SUBTYPE_SIDEARM,
+      ITEM_SUBTYPE_SWORD
+    ));
 
     define("ITEM_SLOT_FILTER", array(
       ITEM_TYPE_KINETICWEAPON,
@@ -59,7 +94,6 @@
     'zh-cht'=> '繁体字', // Chinese Traditional
     );
 
-
     /*$http = new http\Query();
     
     $http->setOption(CURLOPT_URL, $apiRoot.'/Destiny2/Manifest/');
@@ -80,12 +114,11 @@
 
     fopen('db/en/world_sql_content.db', 'W+', $sqliteDB);*/
 
-
     $pdo = new PDO('sqlite:db/en/world_sql_content.content');
-    $items = $pdo->query("SELECT * FROM DestinyInventoryItemDefinition")->fetchAll();
-    $itemQualities = $pdo->query("SELECT * FROM DestinyItemTierTypeDefinition")->fetchAll();
+    $items = json\Parse::parseToArray($pdo->query("SELECT * FROM DestinyInventoryItemDefinition")->fetchAll());
+    $itemQualities = json\Parse::parseToArray($pdo->query("SELECT * FROM DestinyItemTierTypeDefinition")->fetchAll());
     $itemStats = $pdo->query("SELECT * FROM DestinyStatDefinition")->fetchAll();
-    $itemTypes = $pdo->query("SELECT * FROM DestinyItemCategoryDefinition")->fetchAll();
+    $itemTypes = json\Parse::parseToArray($pdo->query("SELECT * FROM DestinyItemCategoryDefinition")->fetchAll());
     $characterClasses = $pdo->query("SELECT * FROM DestinyClassDefinition")->fetchAll();
 
     // Item Filter
@@ -117,6 +150,7 @@
       #item-table td {
         vertical-align: middle;
         font-size: 13px;
+        font-weight: 700; 
       }
 
       .breadcrumb {
@@ -190,9 +224,9 @@
                   <select id="select-item-slot" size="5" multiple class="form-control rounded-0">
                     <?php for($i = 0; $i < sizeof($itemTypes); $i++): ?>
                     <?php for($j = 0; $j < sizeof(ITEM_SLOT_FILTER); $j++): ?>
-                    <?php if(ITEM_SLOT_FILTER[$j] == json_decode($itemTypes[$i]['json'])->hash): ?>
+                    <?php if(ITEM_SLOT_FILTER[$j] == $itemTypes[$i]['hash']): ?>
                     <option>
-                      <?php echo json_decode($itemTypes[$i]['json'])->displayProperties->name ?>
+                      <?php echo $itemTypes[$i]['displayProperties']['name']; ?>
                     </option>
                     <?php endif ?>
                     <?php endfor ?>
@@ -206,9 +240,9 @@
                   <select id="select-item-qualities" size="5" multiple class="form-control rounded-0">
                     <?php for($i = 0; $i < sizeof($itemQualities); $i++): ?>
                     <?php for($j = 0; $j < sizeof(ITEM_TIER_TYPES); $j++): ?>
-                    <?php if(ITEM_TIER_TYPES[$j] == json_decode($itemQualities[$i]['json'])->hash): ?>
-                    <option style="color: var(--item-colour-<?php echo strtolower(json_decode($itemQualities[$i]['json'])->displayProperties->name) ?>);">
-                      <?php echo json_decode($itemQualities[$i]['json'])->displayProperties->name ?>
+                    <?php if(ITEM_TIER_TYPES[$j] == $itemQualities[$i]['hash']): ?>
+                    <option style="color: var(--item-colour-<?php echo strtolower($itemQualities[$i]['displayProperties']['name']); ?>);">
+                      <?php echo $itemQualities[$i]['displayProperties']['name'] ?>
                     </option>
                     <?php endif ?>
                     <?php endfor ?>
@@ -238,30 +272,29 @@
         </thead>
         <tbody>
           <?php foreach($items as $item): ?>
-          <?php $item = json_decode($item['json'], false, 512) ?>
-          <?php if(isset($item->itemCategoryHashes)/* && in_array(ITEM_TYPE_KINETICWEAPON, $item->itemCategoryHashes)*/): ?>
+          <?php if(isset($item['itemCategoryHashes'])): ?>
           <?php foreach(ITEM_SLOT_FILTER as $slot): ?>
-          <?php if(in_array($slot, $item->itemCategoryHashes)): ?>
+          <?php if(in_array($slot, $item['itemCategoryHashes'])): ?>
           <tr>
             <td style="padding-right: 0px;width: 62px">
-              <img class="img-thumbnail" style="width: inherit" src="<?php echo $dbRoot.$item->displayProperties->icon ?>" alt="Generic placeholder image">
+              <img class="img-thumbnail" style="width: inherit" src="<?php echo $dbRoot.$item['displayProperties']['icon'] ?>" alt="Generic placeholder image">
             </td>
-            <td style="padding-left: 6px; color: var(--item-colour-<?php echo strtolower($item->inventory->tierTypeName) ?>);">
-              <?php echo $item->displayProperties->name ?>
+            <td style="padding-left: 6px; color: var(--item-colour-<?php echo strtolower($item['inventory']['tierTypeName']) ?>);">
+              <?php echo $item['displayProperties']['name'] ?>
               <?php //echo $item->displayProperties->description ?>
             </td>
             <td>
-              <?php foreach($item->stats->stats as $stats): ?>
-              <?php if($stats->statHash === ITEM_STAT_RPM): ?>
-              <?php echo $stats->value ?>
+              <?php foreach($item['stats']['stats'] as $stats): ?>
+              <?php if($stats['statHash'] === ITEM_STAT_RPM): ?>
+              <?php echo $stats['value']; ?>
               <?php endif ?>
               <?php endforeach ?>
             </td>
             <td>
               <?php
-                if(isset($item->itemCategoryHashes[0])) {
-                  $slotID = $item->itemCategoryHashes[0]-1; 
-                  $slot = json_decode($itemTypes[$slotID]['json'])->displayProperties->name;
+                if(isset($item['itemCategoryHashes'][0])) {
+                  $slotID = $item['itemCategoryHashes'][0]-1; 
+                  $slot = $itemTypes[$slotID]['displayProperties']['name'];
                   echo $slot;
                 } else {
                   echo "-";
@@ -269,22 +302,21 @@
               ?>
             </td>
             <td>
-              <?php if(isset($item->itemCategoryHashes[2])): ?>
-              <?php foreach($itemTypes as $itemType): ?>
-              <?php if(json_decode($itemType['json'])->hash === $item->itemCategoryHashes[2]): ?>
-              <?php echo json_decode($itemType['json'])->displayProperties->name ?>
-              <?php endif?>
-              <?php endforeach ?>
-              <?php else: ?>
-              <?php echo "-"; ?>
+              <?php $weapon = $itemTypes[ITEM_TYPE_WEAPON-1]; ?>
+              <?php foreach(ITEM_WEAPON_SUBTYPES as $i): ?>
+              <?php foreach($item['itemCategoryHashes'] as $j): ?>
+              <?php if($i === $j): ?>
+              <?php echo $weapon['displayProperties']['name']  ?>
               <?php endif ?>
+              <?php endforeach ?>
+              <?php endforeach ?>
             </td>
             <td>
               <?php
-                if(isset($item->itemCategoryHashes[1])) {
+                if(isset($item['itemCategoryHashes'][1])) {
                   foreach($itemTypes as $itemType) {
-                    if(json_decode($itemType['json'])->hash === $item->itemCategoryHashes[1]) {
-                      echo json_decode($itemType['json'])->displayProperties->name;
+                    if($itemType['hash'] === $item['itemCategoryHashes'][1]) {
+                      echo $itemType['displayProperties']['name'];
                     }
                   }
                 } else {
