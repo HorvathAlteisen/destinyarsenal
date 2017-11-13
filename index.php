@@ -1,6 +1,8 @@
 <?php
     require_once "include/http/query.inc.php";
 
+    error_reporting(E_ALL);
+
     define("API_KEY","35ef7996395d4c2bb1cedbbd47ecf1a0");
 
     define("ITEM_TYPE_WEAPON", 1);
@@ -268,9 +270,11 @@
             </td>
             <td>
               <?php if(isset($item->itemCategoryHashes[2])): ?>
-              <?php $slotID = $item->itemCategoryHashes[2]-1; ?>
-              <?php $slot = json_decode($itemTypes[$slotID]['json'])->displayProperties->name; ?>
-              <?php echo $slot; ?>
+              <?php foreach($itemTypes as $itemType): ?>
+              <?php if(json_decode($itemType['json'])->hash === $item->itemCategoryHashes[2]): ?>
+              <?php echo json_decode($itemType['json'])->displayProperties->name ?>
+              <?php endif?>
+              <?php endforeach ?>
               <?php else: ?>
               <?php echo "-"; ?>
               <?php endif ?>
@@ -278,9 +282,11 @@
             <td>
               <?php
                 if(isset($item->itemCategoryHashes[1])) {
-                  $slotID = $item->itemCategoryHashes[1]-1; 
-                  $slot = json_decode($itemTypes[$slotID]['json'])->displayProperties->name;
-                  echo $slot;
+                  foreach($itemTypes as $itemType) {
+                    if(json_decode($itemType['json'])->hash === $item->itemCategoryHashes[1]) {
+                      echo json_decode($itemType['json'])->displayProperties->name;
+                    }
+                  }
                 } else {
                   echo "-";
                 }
