@@ -1,4 +1,6 @@
 <?php
+    define("__TIME__", microtime(true));
+    
     error_reporting(E_ALL);
 
     require_once "include/http/query.inc.php";
@@ -17,7 +19,7 @@
     define("ITEM_TYPE_LEGS", 48);
     define("ITEM_TYPE_CLASSITEMS", 49);
 
-    define("ITEM_ARMOR_TYPES", array(
+    define("ITEM_ARMOR_SUBTYPES", array(
       ITEM_TYPE_HELMETS,
       ITEM_TYPE_ARMS,
       ITEM_TYPE_CHEST,
@@ -123,6 +125,7 @@
 
     // Item Filter
     $itemFilter = array(2,3,4,38,39,40,41,42);
+    //var_dump($itemTypes);
 ?>
   <!DOCTYPE html>
   <html>
@@ -302,13 +305,14 @@
               ?>
             </td>
             <td>
-              <?php $weapon = $itemTypes[ITEM_TYPE_WEAPON-1]; ?>
-              <?php foreach(ITEM_WEAPON_SUBTYPES as $i): ?>
               <?php foreach($item['itemCategoryHashes'] as $j): ?>
-              <?php if($i === $j): ?>
-              <?php echo $weapon['displayProperties']['name']  ?>
+              <?php for($i = 0; $i < sizeof(ITEM_WEAPON_SUBTYPES); $i++ ): ?>
+              <?php if(ITEM_TYPE_WEAPON === $j): ?>
+              <?php echo $itemTypes[ITEM_TYPE_WEAPON-1]['displayProperties']['name']; break; ?>
+              <?php elseif(isset(ITEM_ARMOR_SUBTYPES[$i]) && ITEM_ARMOR_SUBTYPES[$i] === $j): ?>
+              <?php echo $itemTypes[ITEM_TYPE_ARMOR]['displayProperties']['name']; break; ?>
               <?php endif ?>
-              <?php endforeach ?>
+              <?php endfor ?>
               <?php endforeach ?>
             </td>
             <td>
@@ -332,6 +336,7 @@
         </tbody>
       </table>
       <div class="container table-dark">
+        <?php echo round(microtime(true) -__TIME__, 5) ?>
         <nav aria-label="Page navigation example">
           <ul class="pagination paginations-sm justify-content-end">
             <li class="page-item disabled bg-dark">
