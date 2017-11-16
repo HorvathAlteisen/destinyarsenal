@@ -12,7 +12,7 @@
     define("ITEM_TYPE_KINETICWEAPON", 2);
     define("ITEM_TYPE_ENERGYWEAPON", 3);
     define("ITEM_TYPE_POWERWEAPON", 4);
-    define("ITEM_TYPE_ARMOR", 30);
+    define("ITEM_TYPE_ARMOR", 20);
     define("ITEM_TYPE_HELMETS", 45);
     define("ITEM_TYPE_ARMS", 46);
     define("ITEM_TYPE_CHEST", 47);
@@ -122,6 +122,7 @@
     $itemStats = $pdo->query("SELECT * FROM DestinyStatDefinition")->fetchAll();
     $itemTypes = json\Parse::parseToArray($pdo->query("SELECT * FROM DestinyItemCategoryDefinition")->fetchAll());
     $characterClasses = $pdo->query("SELECT * FROM DestinyClassDefinition")->fetchAll();
+    //var_dump($itemTypes);
 
     // Item Filter
     $itemFilter = array(2,3,4,38,39,40,41,42);
@@ -305,15 +306,17 @@
               ?>
             </td>
             <td>
-              <?php foreach($item['itemCategoryHashes'] as $j): ?>
-              <?php for($i = 0; $i < sizeof(ITEM_WEAPON_SUBTYPES); $i++ ): ?>
-              <?php if(ITEM_TYPE_WEAPON === $j): ?>
-              <?php echo $itemTypes[ITEM_TYPE_WEAPON-1]['displayProperties']['name']; break; ?>
-              <?php elseif(isset(ITEM_ARMOR_SUBTYPES[$i]) && ITEM_ARMOR_SUBTYPES[$i] === $j): ?>
-              <?php echo $itemTypes[ITEM_TYPE_ARMOR]['displayProperties']['name']; break; ?>
-              <?php endif ?>
-              <?php endfor ?>
-              <?php endforeach ?>
+                <?php
+                    foreach($item['itemCategoryHashes'] as $itemCategoryHash) {
+                      if($itemCategoryHash === ITEM_TYPE_WEAPON) {
+                        echo $itemTypes[ITEM_TYPE_WEAPON-1]['displayProperties']['name'];
+                        break;
+                      } elseif($itemCategoryHash === ITEM_TYPE_ARMOR) {
+                        echo $itemTypes[ITEM_TYPE_ARMOR-2]['displayProperties']['name'];
+                        break;
+                      }
+                    }
+                ?>
             </td>
             <td>
               <?php
