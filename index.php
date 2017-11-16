@@ -2,6 +2,14 @@
     define("__TIME__", microtime(true));
     
     error_reporting(E_ALL);
+    set_error_handler(function(int $error_level, string $error_message,
+    string $error_file, int $error_line, array $error_context) {
+
+      define("__ERROR__", 1);
+
+      include "error.php";
+      die();
+    });
 
     require_once "include/http/query.inc.php";
     require_once "include/json/parse.inc.php";
@@ -13,13 +21,20 @@
     define("ITEM_TYPE_ENERGYWEAPON", 3);
     define("ITEM_TYPE_POWERWEAPON", 4);
     define("ITEM_TYPE_ARMOR", 20);
+    define("ITEM_TYPE_WARLOCK_HELMET", 21);
+    define("ITEM_TYPE_TITAN_HELMET", 22);
+    define("ITEM_TYPE_HUNTER_HELMET", 23);
     define("ITEM_TYPE_HELMETS", 45);
     define("ITEM_TYPE_ARMS", 46);
     define("ITEM_TYPE_CHEST", 47);
     define("ITEM_TYPE_LEGS", 48);
     define("ITEM_TYPE_CLASSITEMS", 49);
+    define("ITEM_TYPE_MOD", 59);
 
     define("ITEM_ARMOR_SUBTYPES", array(
+      ITEM_TYPE_WARLOCK_HELMET,
+      ITEM_TYPE_TITAN_HELMET,
+      ITEM_TYPE_HUNTER_HELMET,
       ITEM_TYPE_HELMETS,
       ITEM_TYPE_ARMS,
       ITEM_TYPE_CHEST,
@@ -61,7 +76,8 @@
       ITEM_TYPE_ARMS,
       ITEM_TYPE_CHEST,
       ITEM_TYPE_LEGS,
-      ITEM_TYPE_CLASSITEMS
+      ITEM_TYPE_CLASSITEMS,
+      ITEM_TYPE_MOD
     ));
 
     define("ITEM_TIER_COMMON", 3340296461);
@@ -121,12 +137,12 @@
     $itemQualities = json\Parse::parseToArray($pdo->query("SELECT * FROM DestinyItemTierTypeDefinition")->fetchAll());
     $itemStats = $pdo->query("SELECT * FROM DestinyStatDefinition")->fetchAll();
     $itemTypes = json\Parse::parseToArray($pdo->query("SELECT * FROM DestinyItemCategoryDefinition")->fetchAll());
-    $characterClasses = $pdo->query("SELECT * FROM DestinyClassDefinition")->fetchAll();
+    $itemBucket = json\Parse::parseToArray($pdo->query("SELECT * FROM DestinyInventoryBucketDefinition")->fetchAll());
+    $characterClasses = json\Parse::parseToArray($pdo->query("SELECT * FROM DestinyClassDefinition")->fetchAll());
     //var_dump($itemTypes);
 
     // Item Filter
     $itemFilter = array(2,3,4,38,39,40,41,42);
-    //var_dump($itemTypes);
 ?>
   <!DOCTYPE html>
   <html>
@@ -161,12 +177,21 @@
         margin-bottom: 0;
         padding: 10px;
       }
+
+      .page-item .page-link {
+        color: #fff;
+      }
     </style>
   </head>
 
   <body class="bg-secondary">
     <div class="jumbotron rounded-0">
-      <h1>Destiny Arsenal</h1>
+      <div class="mx-auto text-center">
+        <h1 class="display-3">Destiny Arsenal</h1>
+        <p class="lead">
+          The only Database that cares!
+        </p>
+      </div>
     </div>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
       <a class="navbar-brand" href="#">Arsenal</a>
@@ -216,7 +241,7 @@
                   <select id="select-item-class" class="form-control form-control-sm rounded-0">
                     <?php foreach($characterClasses as $class): ?>
                     <option>
-                      <?php echo json_decode($class['json'])->displayProperties->name;  ?>
+                      <?php echo $class['displayProperties']['name'];  ?>
                     </option>
                     <?php endforeach ?>
                   </select>
@@ -278,7 +303,7 @@
           <?php foreach($items as $item): ?>
           <?php if(isset($item['itemCategoryHashes'])): ?>
           <?php foreach(ITEM_SLOT_FILTER as $slot): ?>
-          <?php if(in_array($slot, $item['itemCategoryHashes'])): ?>
+          <?php if(in_array($slot, $item['itemCategoryHashes']) && count($item['itemCategoryHashes']) >= 2): ?>
           <tr>
             <td style="padding-right: 0px;width: 62px">
               <img class="img-thumbnail" style="width: inherit" src="<?php echo $dbRoot.$item['displayProperties']['icon'] ?>" alt="Generic placeholder image">
@@ -288,20 +313,25 @@
               <?php //echo $item->displayProperties->description ?>
             </td>
             <td>
+              <?php if(isset($item['stats']['stats'])): ?>
               <?php foreach($item['stats']['stats'] as $stats): ?>
               <?php if($stats['statHash'] === ITEM_STAT_RPM): ?>
               <?php echo $stats['value']; ?>
               <?php endif ?>
               <?php endforeach ?>
+              <?php endif ?>
             </td>
             <td>
               <?php
+                // Type
                 if(isset($item['itemCategoryHashes'][0])) {
-                  $slotID = $item['itemCategoryHashes'][0]-1; 
-                  $slot = $itemTypes[$slotID]['displayProperties']['name'];
-                  echo $slot;
-                } else {
-                  echo "-";
+                  $slotID = $item['itemCategoryHashes'][0];
+                  for($i = 0; $i < sizeof($itemTypes); $i++) {
+                    if($itemTypes[$i]['hash'] == $slotID) {
+                      echo $itemTypes[$i]['displayProperties']['name'];
+                      break;
+                    }
+                  }
                 }
               ?>
             </td>
@@ -319,7 +349,7 @@
                 ?>
             </td>
             <td>
-              <?php
+              <?php /*
                 if(isset($item['itemCategoryHashes'][1])) {
                   foreach($itemTypes as $itemType) {
                     if($itemType['hash'] === $item['itemCategoryHashes'][1]) {
@@ -328,7 +358,8 @@
                   }
                 } else {
                   echo "-";
-                }
+                }*/
+                echo $item["itemTypeDisplayName"];
               ?>
             </td>
           </tr>
@@ -338,27 +369,37 @@
           <?php endforeach ?>
         </tbody>
       </table>
-      <div class="container table-dark">
-        <?php echo round(microtime(true) -__TIME__, 5) ?>
-        <nav aria-label="Page navigation example">
-          <ul class="pagination paginations-sm justify-content-end">
-            <li class="page-item disabled bg-dark">
-              <a class="page-link" href="#" tabindex="-1">Previous</a>
+      <div class="container">
+        <nav aria-label="Page navigation">
+          <ul class="pagination paginations-sm justify-content-center">
+            <li class="page-item disabled">
+              <a class="page-link bg-dark rounded-0" href="#" tabindex="-1">&laquo;</a>
             </li>
             <li class="page-item">
-              <a class="page-link" href="#">1</a>
+              <a class="page-link bg-dark" href="#">1</a>
             </li>
             <li class="page-item">
-              <a class="page-link" href="#">2</a>
+              <a class="page-link bg-dark" href="#">2</a>
             </li>
             <li class="page-item">
-              <a class="page-link" href="#">3</a>
+              <a class="page-link bg-dark" href="#">3</a>
             </li>
             <li class="page-item">
-              <a class="page-link" href="#">Next</a>
+              <a class="page-link bg-dark" href="#">4</a>
+            </li>
+            <li class="page-item">
+              <a class="page-link bg-dark" href="#">5</a>
+            </li>
+            <li class="page-item">
+              <a class="page-link bg-dark rounded-0" href="#">&raquo;</a>
             </li>
           </ul>
         </nav>
+      </div>
+      <div class="container bg-dark">
+      <p>
+        <?php echo "This Page has been generated in:". round(microtime(true) -__TIME__, 5). " seconds!"; ?>
+      </p>
       </div>
     </div>
   </body>
