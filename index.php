@@ -375,7 +375,7 @@
             <li class="page-item disabled">
               <a class="page-link bg-dark rounded-0" href="#" tabindex="-1">&laquo;</a>
             </li>
-            <li class="page-item">
+            <li class="page-item active">
               <a class="page-link bg-dark" href="#">1</a>
             </li>
             <li class="page-item">
