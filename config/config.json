@@ -1,0 +1,9 @@
+{
+    "API_KEY": "35ef7996395d4c2bb1cedbbd47ecf1a0",
+    "API_ROOT": "https://www.bungie.net/Platform",
+    "IMAGE_ROOT": "https://www.bungie.net/",
+    "pagination": {
+        "previousPage": "&laquo;",
+        "nextPage": "&raquo;"
+    }
+}

@@ -1,4 +1,12 @@
 <?php
+    if(version_compare(PHP_VERSION, '7.1.9', '<')) {
+      echo '<h2>Error</h2>';
+      echo '<p>PHP 7.1 or higher is required to use Destiny Arsenal</p>';
+      echo '<p>You are running '.PHP_VERSION.'</p>';
+      exit;
+
+    }
+    
     define("__TIME__", microtime(true));
     
     error_reporting(E_ALL);
@@ -11,10 +19,21 @@
       die();
     });
 
+    /*try {
+      if(!extension_loaded('pdo')) {
+        throw NoRewindIterator
+      }
+
+    }*/
+
     require_once "include/http/query.inc.php";
     require_once "include/json/parse.inc.php";
+    require_once "include/controller/pagination.inc.php";
+    require_once "include/config/config.inc.php";
 
-    define("API_KEY","35ef7996395d4c2bb1cedbbd47ecf1a0");
+    $config = new config\Config("config/config.json");
+
+    define("API_KEY",$config->get("API_KEY"));
 
     define("ITEM_TYPE_WEAPON", 1);
     define("ITEM_TYPE_KINETICWEAPON", 2);
@@ -139,10 +158,32 @@
     $itemTypes = json\Parse::parseToArray($pdo->query("SELECT * FROM DestinyItemCategoryDefinition")->fetchAll());
     $itemBucket = json\Parse::parseToArray($pdo->query("SELECT * FROM DestinyInventoryBucketDefinition")->fetchAll());
     $characterClasses = json\Parse::parseToArray($pdo->query("SELECT * FROM DestinyClassDefinition")->fetchAll());
-    //var_dump($itemTypes);
 
-    // Item Filter
-    $itemFilter = array(2,3,4,38,39,40,41,42);
+    // Pagination TODO: add root element of Pagination to external file and parse it with DOMDocument->loadHtml();
+    if(array_key_exists('page', $_GET)) {
+      $currentPage = $_GET['page'];
+    } else {
+      $currentPage = 1;
+    }
+
+    $pagination = new controller\Pagination(50, $currentPage, 2, sizeof($items), $config->get("pagination.previousPage"), $config->get("pagination.nextPage"));
+    $root = new DOMDocument();
+    $root->load("themes/standard/pagination/rootNode.html");
+    $pagination->setRootNode($root);
+
+    $activeChildNode = new DOMDocument();
+    $activeChildNode->load("themes/standard/pagination/activeChildNode.html");
+    $pagination->setActiveChildNode($activeChildNode);
+
+    $childNode = new DOMDocument();
+    $childNode->load("themes/standard/pagination/childNode.html");
+    $pagination->setChildNode($childNode);
+
+    $disabledChildNode = new DOMDocument();
+    $disabledChildNode->load("themes/standard/pagination/disabledChildNode.html");
+    $pagination->setDisabledChildNode($disabledChildNode);
+    
+    // TODO: Filter all Items which are not Helm, Chest Armos, Gauntlets, Leg Armor, Shoes, Class Item, Shaders, Ships Emotes and all Types of Weapons 
 ?>
   <!DOCTYPE html>
   <html>
@@ -178,9 +219,19 @@
         padding: 10px;
       }
 
-      .page-item .page-link {
-        color: #fff;
+      /* Looks good, keeping it, needs to be set more explicit */
+      .container h2 {
+        border-bottom: 2px solid #32383e;
       }
+
+      li.nav-item.active {
+        border-bottom: 2px solid #FFF !important;
+      }
+
+      div.container .table-dark {
+        margin-bottom: 15px !important;
+      }
+
     </style>
   </head>
 
@@ -193,8 +244,9 @@
         </p>
       </div>
     </div>
+    <div class="container">
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-      <a class="navbar-brand" href="#">Arsenal</a>
+      <a class="navbar-brand" href="#">Destiny Arsenal</a>
       <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false"
         aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
@@ -218,7 +270,6 @@
         </ul>
       </div>
     </nav>
-    <div class="container">
       <ol class="breadcrumb" style="background-color: inherit;">
         <li class="breadcrumb-item">
           <a class="text-white" href="#">Database</a>
@@ -239,6 +290,7 @@
                 <div class="form-group">
                   <label for="select-item-class">Used by:</label>
                   <select id="select-item-class" class="form-control form-control-sm rounded-0">
+                    <option selected>All</option>
                     <?php foreach($characterClasses as $class): ?>
                     <option>
                       <?php echo $class['displayProperties']['name'];  ?>
@@ -282,12 +334,24 @@
             </div>
             <div class="form-row">
               <div class="form-group col-md-12">
-                <button class="btn btn-primary rounded-0" type="submit">Filter</button>
+                <button class="btn btn-primary rounded-0" type="submit">Search</button>
               </div>
             </div>
           </form>
         </div>
       </div>
+
+      <div class="container table-dark">
+        <div class="form-row">
+          <div class="col-md-3">
+              <div class="form-group">
+                <input class="form-control form-control-sm rounded-0" placeholder="search within displayed results" type="text">
+              </div>
+          </div>
+          <div class="col-md-3">
+            <?php //$pagination->getHTML(); ?>            
+          </div>
+        </div>
       <table id="item-table" class="table table-dark table-hover">
         <thead>
           <tr>
@@ -300,21 +364,21 @@
           </tr>
         </thead>
         <tbody>
-          <?php foreach($items as $item): ?>
-          <?php if(isset($item['itemCategoryHashes'])): ?>
+          <?php for($i = $pagination->getCurrentPage()*$pagination->getLinesPerPage()-$pagination->getLinesPerPage(); $i < $pagination->getCurrentPage()*$pagination->getLinesPerPage(); $i++): ?>
+          <?php if(isset($items[$i]['equippable']) && $items[$i]['equippable']): ?>
           <?php foreach(ITEM_SLOT_FILTER as $slot): ?>
-          <?php if(in_array($slot, $item['itemCategoryHashes']) && count($item['itemCategoryHashes']) >= 2): ?>
+          <?php if(isset($items[$i]['itemCategoryHashes']) && in_array($slot, $items[$i]['itemCategoryHashes']) && count($items[$i]['itemCategoryHashes']) >= 2): ?>
           <tr>
             <td style="padding-right: 0px;width: 62px">
-              <img class="img-thumbnail" style="width: inherit" src="<?php echo $dbRoot.$item['displayProperties']['icon'] ?>" alt="Generic placeholder image">
+              <img class="img-thumbnail" style="width: inherit" src="<?php echo $dbRoot.$items[$i]['displayProperties']['icon'] ?>" alt="Generic placeholder image">
             </td>
-            <td style="padding-left: 6px; color: var(--item-colour-<?php echo strtolower($item['inventory']['tierTypeName']) ?>);">
-              <?php echo $item['displayProperties']['name'] ?>
+            <td style="padding-left: 6px; color: var(--item-colour-<?php echo strtolower($items[$i]['inventory']['tierTypeName']) ?>);">
+              <?php echo $items[$i]['displayProperties']['name'] ?>
               <?php //echo $item->displayProperties->description ?>
             </td>
             <td>
-              <?php if(isset($item['stats']['stats'])): ?>
-              <?php foreach($item['stats']['stats'] as $stats): ?>
+              <?php if(isset($items[$i]['stats']['stats'])): ?>
+              <?php foreach($items[$i]['stats']['stats'] as $stats): ?>
               <?php if($stats['statHash'] === ITEM_STAT_RPM): ?>
               <?php echo $stats['value']; ?>
               <?php endif ?>
@@ -324,11 +388,11 @@
             <td>
               <?php
                 // Type
-                if(isset($item['itemCategoryHashes'][0])) {
-                  $slotID = $item['itemCategoryHashes'][0];
-                  for($i = 0; $i < sizeof($itemTypes); $i++) {
-                    if($itemTypes[$i]['hash'] == $slotID) {
-                      echo $itemTypes[$i]['displayProperties']['name'];
+                if(isset($items[$i]['itemCategoryHashes'][0])) {
+                  $slotID = $items[$i]['itemCategoryHashes'][0];
+                  for($j = 0; $j < sizeof($itemTypes); $j++) {
+                    if($itemTypes[$j]['hash'] == $slotID) {
+                      echo $itemTypes[$j]['displayProperties']['name'];
                       break;
                     }
                   }
@@ -337,7 +401,7 @@
             </td>
             <td>
                 <?php
-                    foreach($item['itemCategoryHashes'] as $itemCategoryHash) {
+                    foreach($items[$i]['itemCategoryHashes'] as $itemCategoryHash) {
                       if($itemCategoryHash === ITEM_TYPE_WEAPON) {
                         echo $itemTypes[ITEM_TYPE_WEAPON-1]['displayProperties']['name'];
                         break;
@@ -359,47 +423,23 @@
                 } else {
                   echo "-";
                 }*/
-                echo $item["itemTypeDisplayName"];
+                echo $items[$i]["itemTypeDisplayName"];
               ?>
             </td>
           </tr>
           <?php endif ?>
           <?php endforeach ?>
           <?php endif ?>
-          <?php endforeach ?>
+          <?php endfor ?>
         </tbody>
       </table>
-      <div class="container">
-        <nav aria-label="Page navigation">
-          <ul class="pagination paginations-sm justify-content-center">
-            <li class="page-item disabled">
-              <a class="page-link bg-dark rounded-0" href="#" tabindex="-1">&laquo;</a>
-            </li>
-            <li class="page-item active">
-              <a class="page-link bg-dark" href="#">1</a>
-            </li>
-            <li class="page-item">
-              <a class="page-link bg-dark" href="#">2</a>
-            </li>
-            <li class="page-item">
-              <a class="page-link bg-dark" href="#">3</a>
-            </li>
-            <li class="page-item">
-              <a class="page-link bg-dark" href="#">4</a>
-            </li>
-            <li class="page-item">
-              <a class="page-link bg-dark" href="#">5</a>
-            </li>
-            <li class="page-item">
-              <a class="page-link bg-dark rounded-0" href="#">&raquo;</a>
-            </li>
-          </ul>
-        </nav>
       </div>
+            <?php $pagination->getHTML() ?>
+      
       <div class="container bg-dark">
-      <p>
+      <span>
         <?php echo "This Page has been generated in:". round(microtime(true) -__TIME__, 5). " seconds!"; ?>
-      </p>
+      </span>
       </div>
     </div>
   </body>
